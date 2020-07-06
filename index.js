@@ -6,8 +6,11 @@ const telejson = require(`telejson`);
 const express = require(`express`);
 const bodyParser = require(`body-parser`);
 const app = express();
+const carboneRouter = express.Router()
 const upload = require(`multer`)({ dest: `/tmp-reports/` });
+const Handlebars = require('handlebars')
 const port = process.env.CARBONE_PORT || 3030;
+const baseUrl = process.env.BASE_URL || '/'
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -16,11 +19,17 @@ const render = util.promisify(carbone.render);
 
 const defaultFormatters = {...carbone.formatters};
 
-app.get('/', (req, res) => {
-  res.sendFile(path.resolve(`./test.html`));
+const testTmpl = Handlebars.compile(fs.readFileSync(path.resolve('./test.html')).toString())
+
+app.get('/healthcheck', (req, res) => {
+  res.status(200).send('OK !')
+})
+
+carboneRouter.get('/', (req, res) => {
+  res.send(testTmpl({ baseUrl }));
 });
 
-app.post('/render', upload.single(`template`), async (req, res) => {
+carboneRouter.post('/render', upload.single(`template`), async (req, res) => {
   const template = req.file;
   if(!template) {
     return res.status(400).send(`Template file required`);
@@ -72,5 +81,7 @@ app.post('/render', upload.single(`template`), async (req, res) => {
 
   return res.send(report);
 });
+
+app.use(baseUrl, carboneRouter)
 
 app.listen(port, () => console.log(`Carbone wrapper listenning on port ${port}!`));
